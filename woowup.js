@@ -31,9 +31,7 @@
             metadata: metadata || {}
         };
 
-        _post(WU_TRACK_URL, event);
-
-        if (callback && typeof(callback) === 'function') callback();
+        _post(WU_TRACK_URL, event, callback);
     }
 
     function _getIdTypeName(type)
