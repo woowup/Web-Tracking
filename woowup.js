@@ -1,6 +1,6 @@
 (function() {
 
-    const WU_TRACK_URL = 'https://r18jvcd13g.execute-api.us-east-1.amazonaws.com/prod_test/record/dada';
+    const WU_TRACK_URL = 'https://r18jvcd13g.execute-api.us-east-1.amazonaws.com/prod_test/record';
     const LAST_SESSION_KEY = '_wulastsession';
     const SESSION_DURATION = 3600;
 
