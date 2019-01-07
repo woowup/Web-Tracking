@@ -1,12 +1,14 @@
-(function() {
+(function () {
 
-    const WU_TRACK_URL = 'https://tracking.woowup.com/web-tracking/track';
     const LAST_SESSION_KEY = '_wulastsession';
+    const WU_TRACK_URL = "https://tracking.woowup.com/web-tracking/track";
     const SESSION_DURATION = 3600;
 
     function _track (publicKey, eventName, metadata, callback) {
 
         WU.config = Object.assign({}, _default, WU.config);
+        WU._publicKey = publicKey || WU._publicKey;
+        WU._metadata = metadata || WU._metadata;
 
         let wuid = _getId();
 
@@ -114,6 +116,64 @@
         return decodeURIComponent(results[2].replace(/\+/g, ' '));
     }
 
+    function _isVTEX()
+    {
+        return 'Vtex' in window;
+    }
+
+    function _addVTEXListener(event, listenerName, handler)
+    {
+        let listener = new Vtex.JSEvents.Listener(listenerName, handler);
+        skuEventDispatcher.addListener(event, listener);
+    }
+
+    function _getVTEXWoowUpSku()
+    {
+        try {
+            return $('.skuReference').get(0).innerHTML;
+        } catch (err) {
+            console.error(err)
+            return null;
+        }
+    }
+
+    function _getVTEXProductBySku(sku)
+    {
+        for (let i in skuJson.skus) {
+            if (skuJson.skus[i].sku == sku) {
+                return skuJson.skus[i];
+            }
+        }
+
+        return null;
+    }
+
+    function WoowUpVTEXTrackingSKUChangedHandler(e)
+    {
+        let product = _getVTEXProductBySku(e.newSkuId);
+
+        if (product.available) {
+            _trackProductVTEX(WU._publicKey, WU._metadata)
+        } else {
+            console.info("The product " + e.newSkuId + " is not available");
+        }
+    }
+
+    function _trackProductVTEX(publicKey, metadata, callback)
+    {
+        WU._publicKey = publicKey || WU._publicKey;
+        WU._metadata = metadata || WU._metadata;
+
+        let sku = _getVTEXWoowUpSku();
+
+        if (sku && WU._vtexUniqueSkus.indexOf(sku) == -1) {
+            WU._metadata.sku = sku;
+            WU._vtexUniqueSkus.push(sku);
+
+            _track(WU._publicKey, 'product-view', WU._metadata, callback)
+        }
+    }
+
     var WU = {};
 
     let _default = {
@@ -123,7 +183,16 @@
 
     WU.config = Object.assign({}, _default);
     WU.track = _track;
+    WU.trackProductVTEX = _trackProductVTEX;
+    WU._publicKey = null;
+    WU._metadata = {};
+
     window.WU = WU;
+
+    if (_isVTEX()) {
+        WU._vtexUniqueSkus = [];
+        _addVTEXListener('skuSelectionChanged', 'WoowUpVTEXTrackingSKUChanged', WoowUpVTEXTrackingSKUChangedHandler);
+    }
 
     _getLastSession()
 })();
