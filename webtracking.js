@@ -130,7 +130,8 @@
     function _getVTEXWoowUpSku()
     {
         try {
-            return $('.skuReference').get(0).innerHTML;
+            let element = $('.skuReference').get(0)
+            return element != undefined ? element.innerHTML : element;
         } catch (err) {
             console.error(err)
             return null;
@@ -194,5 +195,6 @@
         _addVTEXListener('skuSelectionChanged', 'WoowUpVTEXTrackingSKUChanged', WoowUpVTEXTrackingSKUChangedHandler);
     }
 
+    _getId()
     _getLastSession()
 })();
