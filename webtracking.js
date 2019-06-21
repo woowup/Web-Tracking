@@ -1,7 +1,7 @@
 (function () {
 
     const LAST_SESSION_KEY = '_wulastsession';
-    const WU_TRACK_URL = "https://peax4bu9ml.execute-api.us-east-1.amazonaws.com/prod/web-tracking/track";
+    const WU_TRACK_URL = "https://tracking.woowup.com/web-tracking/track";
     const SESSION_DURATION = 3600;
 
     function _track (publicKey, eventName, metadata, callback) {
