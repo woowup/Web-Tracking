@@ -98,7 +98,7 @@
     }
 
     function jsonToQueryString(json) {
-        return '?' + 
+        return '?' +
             Object.keys(json).map(function(key) {
                 return encodeURIComponent(key) + '=' +
                     encodeURIComponent(json[key]);
@@ -118,7 +118,7 @@
 
     function _isVTEX()
     {
-        return 'Vtex' in window;
+        return 'Vtex' in window || 'vtex' in window;
     }
 
     function _addVTEXListener(event, listenerName, handler)
@@ -127,51 +127,83 @@
         skuEventDispatcher.addListener(event, listener);
     }
 
-    function _getVTEXWoowUpSku()
+    function _isSkuAvailableVTEX(sku)
     {
-        try {
-            let element = $('.skuReference').get(0)
-            return element != undefined ? element.innerHTML : element;
-        } catch (err) {
-            console.error(err)
-            return null;
+        if (sku && skuJson && 'skus' in skuJson && skuJson.skus.length) {
+            return skuJson.skus.find( function (e) {
+                return e.available == true && e.sku == sku;
+            })
         }
+
+        return false;
     }
 
-    function _getVTEXProductBySku(sku)
-    {
-        for (let i in skuJson.skus) {
-            if (skuJson.skus[i].sku == sku) {
-                return skuJson.skus[i];
-            }
+    function _getFirstAvailableSkuVTEX () {
+        if (skuJson && 'skus' in skuJson && skuJson.skus.length) {
+            let t = skuJson.skus.find( function (e) {
+                return e.available == true;
+            })
+
+            return t ? t.sku : null;
         }
 
         return null;
     }
 
-    function WoowUpVTEXTrackingSKUChangedHandler(e)
+    function _trackVTEX(sku)
     {
-        let product = _getVTEXProductBySku(e.newSkuId);
+        try {
+            if (!sku) {
+                return;
+            }
 
-        if (product.available) {
-            _trackProductVTEX(WU._publicKey, WU._metadata)
-        } else {
-            console.info("The product " + e.newSkuId + " is not available");
+            let skuData = getSkuData(sku);
+
+            if (skuData && WU._trackProductVTEXField in skuData && skuData[WU._trackProductVTEXField]) {
+                let _sku = skuData[WU._trackProductVTEXField];
+
+                if (_sku && WU._vtexUniqueSkus.indexOf(_sku) == -1) {
+                    WU._metadata.sku = _sku;
+                    WU._vtexUniqueSkus.push(_sku);
+
+                    _track(WU._publicKey, 'product-view', WU._metadata, WU._callback)
+                }
+            }
+        } catch (err) {
+            console.error(err)
         }
     }
 
+    /**
+     *  These function is call in the first view of the VTEX product's page
+     */
     function _trackProductVTEX(publicKey, metadata, callback)
     {
         WU._publicKey = publicKey || WU._publicKey;
         WU._metadata = metadata || WU._metadata;
+        WU._callback = callback || WU._callback;
 
-        let sku = _getVTEXWoowUpSku();
+        var waitForGetSkuData = setInterval(function () {
+            if (typeof getSkuData != "undefined") {
+                _trackVTEX(_getFirstAvailableSkuVTEX());
+                clearInterval(waitForGetSkuData);
+            }
+        }, 50);
+    }
 
-        if (sku && WU._vtexUniqueSkus.indexOf(sku) == -1) {
-            WU._metadata.sku = sku;
-            WU._vtexUniqueSkus.push(sku);
-
-            _track(WU._publicKey, 'product-view', WU._metadata, callback)
+    /**
+     *  The listener handler for the sku change's event on variation changes of the principal product
+     */
+    function WoowUpVTEXTrackingSKUChangedHandler(e)
+    {
+        try {
+            if (_isSkuAvailableVTEX(e.newSkuId)) {
+                _trackVTEX(e.newSkuId);
+            } else {
+                console.info("[WU] The product " + e.newSkuId + " is not available");
+            }
+        } catch (err) {
+            console.error(err)
         }
     }
 
@@ -185,14 +217,22 @@
     WU.config = Object.assign({}, _default);
     WU.track = _track;
     WU.trackProductVTEX = _trackProductVTEX;
+    WU._trackProductVTEXField = 'reference';
     WU._publicKey = null;
     WU._metadata = {};
+    WU._callback = undefined;
 
     window.WU = WU;
 
     if (_isVTEX()) {
         WU._vtexUniqueSkus = [];
-        _addVTEXListener('skuSelectionChanged', 'WoowUpVTEXTrackingSKUChanged', WoowUpVTEXTrackingSKUChangedHandler);
+
+        var waitForVTEX = setInterval(function () {
+            if (typeof window.Vtex != "undefined") {
+                _addVTEXListener('skuSelectionChanged', 'WoowUpVTEXTrackingSKUChanged', WoowUpVTEXTrackingSKUChangedHandler);
+                clearInterval(waitForVTEX);
+            }
+        }, 50);
     }
 
     _getId()
